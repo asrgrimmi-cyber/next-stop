@@ -3129,7 +3129,7 @@ body.ns-touring .ns-fb{display:none}
 <script>
 (() => {
 'use strict';
-const VERSION = 'v2026.10.13-2215';
+const VERSION = 'v2026.10.13-2228';
 const REPO = 'https://github.com/asrgrimmi-cyber/next-stop';
 const K_TOUR = 'next-stop:tour-done', K_TIPS = 'next-stop:tips-done', LS = 'next-stop:v1';
 const $ = (s, el = document) => el.querySelector(s);
@@ -3139,7 +3139,7 @@ const flightsCount = () => { try { const d = JSON.parse(get(LS) || 'null'); retu
 $('#nsVer').textContent = 'test build ' + VERSION;
 
 /* ---------- Tester check-in + event log (Google Sheet via Apps Script, queued when offline) ---------- */
-const LOG_URL = '', LOG_KEY = 'nextstop-testers', K_ME = 'next-stop:tester', K_Q = 'next-stop:logq';
+const LOG_URL = 'https://script.google.com/macros/s/AKfycbwSJafbqbxXnTK1b9IVWr0zoNKZzwqY_Ai6eqLHDZRDyRd76kJPvxwi9s385NQN3E_ntQ/exec', LOG_KEY = 'nextstop-testers', K_ME = 'next-stop:tester', K_Q = 'next-stop:logq';
 const me = () => { try { return JSON.parse(get(K_ME) || 'null'); } catch (e) { return null; } };
 const readQ = () => { try { return JSON.parse(get(K_Q) || '[]'); } catch (e) { return []; } };
 function track(type, detail) {
