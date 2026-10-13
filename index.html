@@ -3129,7 +3129,7 @@ body.ns-touring .ns-fb{display:none}
 <script>
 (() => {
 'use strict';
-const VERSION = 'v2026.10.13-2228';
+const VERSION = 'v2026.10.13-2230';
 const REPO = 'https://github.com/asrgrimmi-cyber/next-stop';
 const K_TOUR = 'next-stop:tour-done', K_TIPS = 'next-stop:tips-done', LS = 'next-stop:v1';
 const $ = (s, el = document) => el.querySelector(s);
@@ -3159,7 +3159,7 @@ async function flush() {
     await fetch(LOG_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: LOG_KEY, events: q }) });
     const now = readQ(); set(K_Q, JSON.stringify(now.slice(q.length)));
   } catch (e) { /* offline: keep queued, retry later */ }
-  finally { flushing = false; }
+  finally { flushing = false; if (readQ().length && navigator.onLine) setTimeout(flush, 800); }
 }
 addEventListener('online', flush);
 setInterval(flush, 60000);
