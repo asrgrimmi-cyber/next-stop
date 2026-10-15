@@ -2389,6 +2389,8 @@ const Claude = {
 };
 
 /* ================= Share (image card -> phone share sheet) ================= */
+const SHARE_URL = 'https://asrgrimmi-cyber.github.io/next-stop/?src=share';
+const SHARE_QR = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAATgAAAE4AQMAAAD1sX0pAAAABlBMVEURERP2xku/JskAAAABgklEQVR42u2ay24EMQgEUf7/n4l2Y5p2FNnMLVFq9rCeMacSjwY7cvYEdthh9yvt4uuxb++38J2PmD3/zS7EWvz0NWwHfid+r/9Y4N7r9VI78Bvxe8HLtUjfgd9T/7Nv8Bvmvy9elQRzy4zwO/Bbqx9+1N8BP9MtKX/ct+B3y39KfYrd0n/wu8dvdriWcF4kqR8jfrWquC0XLA0Nv2P+60KrpqM8kPpx5RfytWgVU11Iwu/qfxEh+ZytoUtCw2+i/7qHiyodnQDhd+w/4rsTqpSgX0b+11rFZy+p/g5+l/qhsWnpafTfA36eAW16JReE35FfJT2TLJGbCfzO86vlfV5Osgeq8LvMDzQwkN+lQhl+s/lpeCR7Z0L8jvRfjw2UBlWI4Tfwv5LLXVRUV+A3mT+LnxcT/G96/mGTq9J+if57cP7mPYfPVuE3PP9N6zv2OIbf5P5BCRf1IMn8+dH9g21s1d4Hv9H9q+VyexGB3/z+gV8l6n4OfjP9x71S7LD7W3af1CoKU33n8zQAAAAASUVORK5CYII=';
 const Share = {
   blob: null, text: '', name: 'next-stop.png',
   async open(kind, f) {
@@ -2420,24 +2422,36 @@ const Share = {
     a.href = URL.createObjectURL(this.blob); a.download = this.name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1500);
   },
-  wa() { window.open('https://wa.me/?text=' + encodeURIComponent(this.text), '_blank', 'noopener'); },
+  async wa() {
+    const file = new File([this.blob], this.name, { type: 'image/png' });
+    try {   // phones: the share sheet sends the picture + caption; pick WhatsApp there
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: this.text }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    let copied = false;   // laptops: WhatsApp links can't carry a picture, so copy it for pasting
+    try { if (navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({ 'image/png': this.blob })]); copied = true; } } catch (e) {}
+    if (!copied) this.save();
+    window.open('https://wa.me/?text=' + encodeURIComponent(this.text), '_blank', 'noopener');
+    toast(copied ? 'Picture copied · paste it in the WhatsApp chat (Ctrl+V)' : 'Picture saved · attach it in WhatsApp with 📎', { ms: 6000 });
+  },
 };
 function shareText(f) {
   const done = f.tickets.filter(t => t.tornAt).length, total = f.tickets.length;
   const st = statusOf(f);
   return (f.departedAt ? '🛫 Departed: ' : st === 'BOARDED' ? '✈️ On board: ' : '🎫 Booked: ') + f.name + ' (' + flightCode(f) + ')' +
-    (total ? ' · ' + done + '/' + total + ' stops cleared' : '') + (f.departedAt && f.due ? (f.departedAt <= f.due ? ' · on time' : ' · landed late') : '') + ' — Next Stop';
+    (total ? ' · ' + done + '/' + total + ' stops cleared' : '') + (f.departedAt && f.due ? (f.departedAt <= f.due ? ' · on time' : ' · landed late') : '') + ' — Next Stop\nMake your own board ✈️ ' + SHARE_URL;
 }
 function dayText() {
   const s = computeStats();
-  return '🚉 My day on Next Stop: ' + s.tornToday + ' tickets torn · ' + s.departed7 + ' flights departed this week · ' + s.streak + '-day streak · ' + s.miles.toLocaleString('en-US') + ' miles';
+  return '🚉 My day on Next Stop: ' + s.tornToday + ' tickets torn · ' + s.departed7 + ' flights departed this week · ' + s.streak + '-day streak · ' + s.miles.toLocaleString('en-US') + ' miles\nMake your own board ✈️ ' + SHARE_URL;
 }
 async function drawShare(kind, f) {
   try { await Promise.all(['800 40px Archivo', '800 40px Doto', '40px "Alfa Slab One"'].map(x => document.fonts.load(x))); } catch (e) { /* fall back to system fonts */ }
   const W = 1080, nStops = kind === 'flight' ? Math.min(f.tickets.length, 8) + (f.tickets.length > 8 ? 1 : 0) : 0;
-  const H = kind === 'flight' ? clamp(820 + nStops * 70 + (f.name.length > 18 ? 98 : 0) + (f.name.length > 36 ? 98 : 0), 1080, 1350) : 1350, c = document.createElement('canvas');
+  let H = kind === 'flight' ? clamp(820 + nStops * 70 + (f.name.length > 18 ? 98 : 0) + (f.name.length > 36 ? 98 : 0), 1080, 1350) : 1350, c = document.createElement('canvas');
+  const QB = 250, H0 = H; H = H + QB;
   c.width = W; c.height = H;
   const x = c.getContext('2d');
+  const qr = new Image(); qr.src = SHARE_QR; try { await qr.decode(); } catch (e) {}
   const AMB = '#F6C64B', INK = '#F3F0E8', SOFT = 'rgba(243,240,232,.6)', RED = '#E03A2D', GO = '#4CCB8C';
   const font = (w, sz, fam) => (x.font = w + ' ' + sz + 'px ' + fam);
   const DOT = 'Doto, "Courier New", monospace', SANS = 'Archivo, "Helvetica Neue", Arial, sans-serif', SLAB = '"Alfa Slab One", Rockwell, Georgia, serif';
@@ -2498,7 +2512,7 @@ async function drawShare(kind, f) {
     });
     if (total > 8) { x.fillStyle = SOFT; font(800, 28, DOT); x.fillText('+ ' + (total - 8) + ' MORE STOPS', 136, y + 8 * 70); }
     // progress bar
-    const by = H - 210;
+    const by = H0 - 210;
     x.fillStyle = 'rgba(255,255,255,.1)'; rr(70, by, W - 140, 22, 11); x.fill();
     if (total) { x.fillStyle = L.color; rr(70, by, Math.max(22, (W - 140) * done / total), 22, 11); x.fill(); }
     x.fillStyle = AMB; font(800, 34, DOT);
@@ -2529,10 +2543,18 @@ async function drawShare(kind, f) {
     });
     const gone = Array.from(S.flights.values()).filter(fl => fl.departedAt && sameDay(new Date(fl.departedAt), now));
     x.fillStyle = AMB; font(800, 30, DOT);
-    x.fillText(gone.length ? 'DEPARTED TODAY: ' + gone.slice(0, 3).map(fl => flightCode(fl)).join(' · ') : 'NEXT: ' + ((activeFlights()[0] || {}).name || 'BOOK A FLIGHT').toUpperCase().slice(0, 34), 70, H - 150);
+    x.fillText(gone.length ? 'DEPARTED TODAY: ' + gone.slice(0, 3).map(fl => flightCode(fl)).join(' · ') : 'NEXT: ' + ((activeFlights()[0] || {}).name || 'BOOK A FLIGHT').toUpperCase().slice(0, 34), 70, H0 - 122);
   }
   x.fillStyle = 'rgba(243,240,232,.4)'; font(700, 26, SANS);
-  x.fillText('Planned & done on Next Stop · ' + location.host, 70, H - 70);
+  x.fillText('Planned & done on Next Stop', 70, H0 - 70);
+  // QR band: anyone who sees the picture can scan and start their own board
+  const qy = H0 - 20;
+  x.fillStyle = '#1A1A1A'; rr(50, qy, W - 100, QB - 30, 22); x.fill();
+  x.fillStyle = AMB; rr(70, qy + 20, QB - 70, QB - 70, 12); x.fill();
+  if (qr.complete && qr.naturalWidth) x.drawImage(qr, 76, qy + 26, QB - 82, QB - 82);
+  x.fillStyle = AMB; font(800, 40, DOT); x.fillText('SCAN TO BOARD', QB + 30, qy + 82);
+  x.fillStyle = INK; font(800, 40, SANS); x.fillText('Make your own departures board', QB + 30, qy + 136);
+  x.fillStyle = SOFT; font(700, 28, SANS); x.fillText('asrgrimmi-cyber.github.io/next-stop', QB + 30, qy + 184);
   return c;
 }
 
@@ -3129,7 +3151,7 @@ body.ns-touring .ns-fb{display:none}
 <script>
 (() => {
 'use strict';
-const VERSION = 'v2026.10.13-2230';
+const VERSION = 'v2026.10.15-1551';
 const REPO = 'https://github.com/asrgrimmi-cyber/next-stop';
 const K_TOUR = 'next-stop:tour-done', K_TIPS = 'next-stop:tips-done', LS = 'next-stop:v1';
 const $ = (s, el = document) => el.querySelector(s);
